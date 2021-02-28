@@ -9,20 +9,26 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::Write;
 
-const UP: i32 = 65;
-const DOWN: i32 = 66;
-const LEFT: i32 = 68;
-const RIGHT: i32 = 67;
-//const ESCAPE: i32 = 27;
-const Q: i32 = 81;
-const TAB: i32 = 9;
-const ENTER: i32 = 10;
-const BCKSPC: i32 = 127;
-const C_A: i32 = 97;
-const C_Z: i32 = 122;
-const SPACE: i32 = 32;
+static UP: i32 = 65;
+static DOWN: i32 = 66;
+static LEFT: i32 = 68;
+static RIGHT: i32 = 67;
+//static ESCAPE: i32 = 27;
+static Q: i32 = 81;
+static TAB: i32 = 9;
+static ENTER: i32 = 10;
+static BCKSPC: i32 = 127;
+static C_A: i32 = 97;
+static C_Z: i32 = 122;
+static SPACE: i32 = 32;
 
-const FILENAME: &str = "game.json";
+static CLR_GRID: i16 = 1;
+static CLR_FILLED: i16 = 2;
+static CLR_CURSOR: i16 = 3;
+
+static STATUS_Y: i32 = 25;
+
+static FILENAME: &str = "game.json";
 
 #[derive(PartialEq, Clone, Copy)]
 enum Mode {
@@ -127,7 +133,7 @@ fn save(m: &Matrix) {
 }
 
 fn draw_grid(m: &Matrix) {
-    attr_on(A_BOLD());
+    attr_on(COLOR_PAIR(CLR_GRID));
 
     let w = m.width as i32;
     let h = m.height as i32;
@@ -144,7 +150,7 @@ fn draw_grid(m: &Matrix) {
         }
     }
 
-    attr_off(A_BOLD());
+    attr_off(COLOR_PAIR(CLR_GRID));
 }
 
 fn draw_status(p: &Pos, c: i32, mode: Mode) {
@@ -155,16 +161,16 @@ fn draw_status(p: &Pos, c: i32, mode: Mode) {
     };
 
     mvprintw(
-        30,
+        STATUS_Y,
         0,
         &format!("pos: {},{} | mode: {} | char: {}   ", p.x, p.y, mode_s, c)[..],
     );
 }
 
 fn draw_cursor(p: &Pos) {
-    //attr_on(COLOR_PAIR(CLR_CURSOR));
+    attr_on(COLOR_PAIR(CLR_CURSOR));
     mvaddch((p.y * 2 + 1) as i32, (p.x * 2 + 1) as i32, '@' as u64);
-    //attr_off(COLOR_PAIR(CLR_CURSOR));
+    attr_off(COLOR_PAIR(CLR_CURSOR));
 }
 
 fn draw_cell(cell: &Cell, x: usize, y: usize) {
@@ -273,7 +279,15 @@ fn main() {
 
     initscr();
 
+    curs_set(CURSOR_VISIBILITY::CURSOR_INVISIBLE);
+    //keypad(stdscr(), true);
     noecho();
+    start_color();
+
+    //        pairNumber   foreground    background
+    init_pair(CLR_GRID, COLOR_YELLOW, COLOR_BLACK);
+    init_pair(CLR_FILLED, COLOR_BLACK, COLOR_WHITE);
+    init_pair(CLR_CURSOR, COLOR_RED, COLOR_BLACK);
 
     draw_grid(&m);
     draw_cells(&m);
