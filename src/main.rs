@@ -210,6 +210,11 @@ fn advance(cell: &Cell, mode: Mode, p: &mut Pos, width: usize, height: usize, de
 
     if valid {
         draw_cell(cell, p.x, p.y);
+        if mode == Mode::HORIZONTAL {
+            p.x = (p.x as i32 + delta) as usize;
+        } else {
+            p.y = (p.y as i32 + delta) as usize;
+        }
     }
 }
 
