@@ -89,28 +89,25 @@ impl Matrix {
     }
 }
 
-fn load() -> Option<Matrix> {
-    // TODO proper error handling
-    let mut input = File::open(FILENAME).unwrap();
+fn load() -> Result<Matrix, std::io::Error> {
+    let mut input = File::open(FILENAME)?;
     let mut str = String::new();
-    input.read_to_string(&mut str).unwrap();
+    input.read_to_string(&mut str)?;
 
-    let matrix: Matrix = serde_json::from_str(&str).unwrap();
+    let matrix: Matrix = serde_json::from_str(&str)?;
     //println!("loaded: {:?}", matrix);
 
-    Some(matrix)
+    Ok(matrix)
 }
 
-fn save(m: &Matrix) {
-    // TODO proper error handling
-    // -> Result<()> {
-    let serialized = serde_json::to_string(&m).unwrap();
+fn save(m: &Matrix) -> Result<(), std::io::Error> {
+    let serialized = serde_json::to_string(&m)?;
     //println!("saved: {}", serialized);
 
-    let mut output = File::create(FILENAME).unwrap();
-    write!(output, "{}", serialized).unwrap();
+    let mut output = File::create(FILENAME)?;
+    write!(output, "{}", serialized)?;
 
-    //Ok(())
+    Ok(())
 }
 
 fn draw_grid(m: &Matrix) {
@@ -207,8 +204,8 @@ fn advance(m: &Matrix, mode: Mode, p: &mut Pos, width: usize, height: usize, del
     }
 }
 
-fn process_input(c: i32, m: &mut Matrix, p: &mut Pos, mode_: Mode) -> (bool, Mode) {
-    let mut mode = mode_;
+fn process_input(c: i32, m: &mut Matrix, p: &mut Pos, mode: Mode) -> (bool, Mode) {
+    let mut mode = mode;
 
     match c {
         LEFT if p.x > 0 => p.x -= 1,
@@ -252,9 +249,8 @@ fn main() {
     let mut c: i32 = 0;
     let mut mode = Mode::HORIZONTAL;
 
-    let _m: Option<Matrix> = load();
-    if _m.is_some() {
-        m = _m.unwrap();
+    if let Ok(loaded) = load() {
+        m = loaded;
     }
 
     setlocale(LcCategory::all, "pt_PT.UTF-8");
@@ -288,7 +284,7 @@ fn main() {
         }
     }
 
-    save(&m);
+    save(&m).ok();
 
     endwin();
 }
