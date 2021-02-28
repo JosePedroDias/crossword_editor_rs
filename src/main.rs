@@ -1,183 +1,18 @@
 extern crate ncurses;
-extern crate serde;
-extern crate serde_json;
 
 use ncurses::*;
-use serde::{Deserialize, Serialize};
 use std::char;
-use std::fs::File;
-use std::io::prelude::*;
-use std::io::Write;
+use std::env;
 
-const UP: i32 = 65;
-const DOWN: i32 = 66;
-const LEFT: i32 = 68;
-const RIGHT: i32 = 67;
-//const ESCAPE: i32 = 27;
-const Q: i32 = 81;
-const TAB: i32 = 9;
-const ENTER: i32 = 10;
-const BCKSPC: i32 = 127;
-const C_A: i32 = 97;
-const C_Z: i32 = 122;
-const SPACE: i32 = 32;
+mod consts;
+mod draw;
+mod io;
+mod types;
 
-const CLR_GRID: i16 = 1;
-const CLR_FILLED: i16 = 2;
-const CLR_CURSOR: i16 = 3;
-
-const STATUS_Y: i32 = 25;
-
-const FILENAME: &str = "game.json";
-
-#[derive(PartialEq, Clone, Copy)]
-enum Mode {
-    HORIZONTAL,
-    VERTICAL,
-}
-
-struct Pos {
-    x: usize,
-    y: usize,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct Cell {
-    filled: bool,
-    value: char,
-}
-
-impl Cell {
-    fn toggle_filled(&mut self) {
-        self.filled = !self.filled;
-        if self.filled {
-            self.value = ' ';
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct Matrix {
-    width: usize,
-    height: usize,
-    cells: Vec<Cell>,
-}
-
-impl Matrix {
-    fn new(width: usize, height: usize) -> Matrix {
-        Matrix {
-            width,
-            height,
-            cells: vec![
-                Cell {
-                    filled: false,
-                    value: ' '
-                };
-                width * height
-            ],
-        }
-    }
-
-    fn get_cell_mut(&mut self, x: usize, y: usize) -> &mut Cell {
-        let i = y * self.width + x;
-        &mut self.cells[i]
-    }
-
-    fn get_cell(&self, x: usize, y: usize) -> &Cell {
-        let i = y * self.width + x;
-        &self.cells[i]
-    }
-}
-
-fn load() -> Result<Matrix, std::io::Error> {
-    let mut input = File::open(FILENAME)?;
-    let mut str = String::new();
-    input.read_to_string(&mut str)?;
-
-    let matrix: Matrix = serde_json::from_str(&str)?;
-    //println!("loaded: {:?}", matrix);
-
-    Ok(matrix)
-}
-
-fn save(m: &Matrix) -> Result<(), std::io::Error> {
-    let serialized = serde_json::to_string(&m)?;
-    //println!("saved: {}", serialized);
-
-    let mut output = File::create(FILENAME)?;
-    write!(output, "{}", serialized)?;
-
-    Ok(())
-}
-
-fn draw_grid(m: &Matrix) {
-    attr_on(COLOR_PAIR(CLR_GRID));
-
-    let w = m.width as i32;
-    let h = m.height as i32;
-    for y in 0..=h {
-        for x in 0..=w {
-            if x == w {
-                mvprintw(y * 2, w * 2, "+");
-            } else {
-                mvprintw(y * 2, x * 2, "+-");
-            }
-            if y != h {
-                mvprintw(y * 2 + 1, x * 2, "|");
-            }
-        }
-    }
-
-    attr_off(COLOR_PAIR(CLR_GRID));
-}
-
-fn draw_status(p: &Pos, c: i32, mode: Mode) {
-    let mode_s: &str = if mode == Mode::HORIZONTAL {
-        "HOR"
-    } else {
-        "VER"
-    };
-
-    mvprintw(
-        STATUS_Y,
-        0,
-        &format!("pos: {},{} | mode: {} | char: {}   ", p.x, p.y, mode_s, c)[..],
-    );
-}
-
-fn draw_cursor(p: &Pos) {
-    attr_on(COLOR_PAIR(CLR_CURSOR));
-    mvaddch((p.y * 2 + 1) as i32, (p.x * 2 + 1) as i32, '@' as u64);
-    attr_off(COLOR_PAIR(CLR_CURSOR));
-}
-
-fn draw_cell(cell: &Cell, x: usize, y: usize) {
-    let mut v = cell.value;
-    if cell.filled {
-        v = ' ';
-    }
-
-    if cell.filled {
-        attr_on(A_REVERSE());
-    }
-
-    mvaddch((y * 2 + 1) as i32, (x * 2 + 1) as i32, v as u64);
-
-    if cell.filled {
-        attr_off(A_REVERSE());
-    }
-}
-
-fn draw_cells(m: &Matrix) {
-    let w = m.width;
-    let h = m.height;
-    for y in 0..h {
-        for x in 0..w {
-            let cell: &Cell = m.get_cell(x, y);
-            draw_cell(&cell, x, y);
-        }
-    }
-}
+use consts::*;
+use draw::*;
+use io::*;
+use types::*;
 
 fn advance(m: &Matrix, mode: Mode, p: &mut Pos, width: usize, height: usize, delta: i32) {
     let coord: usize = if mode == Mode::HORIZONTAL { p.x } else { p.y };
@@ -244,27 +79,39 @@ fn process_input(c: i32, m: &mut Matrix, p: &mut Pos, mode: Mode) -> (bool, Mode
 }
 
 fn main() {
+    let mut use_new_board = false;
+    let mut w: usize = 11;
+    let mut h: usize = 11;
+
+    {
+        let args: Vec<String> = env::args().collect();
+
+        if args.len() >= 3 {
+            w = args[1].parse::<usize>().unwrap_or(0);
+            h = args[2].parse::<usize>().unwrap_or(0);
+            if (2..30).contains(&w) && (2..20).contains(&h) {
+                use_new_board = true;
+            }
+        }
+    }
+
     let mut p = Pos { x: 0, y: 0 };
-    let mut m = Matrix::new(11, 11);
+    let mut m = Matrix::new(w, h);
     let mut c: i32 = 0;
     let mut mode = Mode::HORIZONTAL;
 
-    if let Ok(loaded) = load() {
-        m = loaded;
+    if use_new_board {
+        println!("Setting up new board of {} x {}", m.width, m.height);
+    } else {
+        if let Ok(loaded) = load() {
+            m = loaded;
+            println!("Recovering board of {} x {}", m.width, m.height);
+        } else {
+            println!("Setting up new board of {} x {}", m.width, m.height);
+        }
     }
 
-    setlocale(LcCategory::all, "pt_PT.UTF-8");
-
-    initscr();
-
-    curs_set(CURSOR_VISIBILITY::CURSOR_INVISIBLE);
-    noecho();
-    start_color();
-
-    //        pairNumber   foreground    background
-    init_pair(CLR_GRID, COLOR_YELLOW, COLOR_BLACK);
-    init_pair(CLR_FILLED, COLOR_BLACK, COLOR_WHITE);
-    init_pair(CLR_CURSOR, COLOR_RED, COLOR_BLACK);
+    setup();
 
     draw_grid(&m);
     draw_cells(&m);
