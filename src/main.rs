@@ -1,7 +1,13 @@
 extern crate ncurses;
+extern crate serde;
+extern crate serde_json;
 
 use ncurses::*;
+use serde::{Deserialize, Serialize};
 use std::char;
+use std::fs::File;
+use std::io::prelude::*;
+use std::io::Write;
 
 const UP: i32 = 65;
 const DOWN: i32 = 66;
@@ -16,6 +22,8 @@ const C_A: i32 = 97;
 const C_Z: i32 = 122;
 const SPACE: i32 = 32;
 
+const FILENAME: &str = "game.json";
+
 #[derive(PartialEq, Clone, Copy)]
 enum Mode {
     HORIZONTAL,
@@ -27,12 +35,13 @@ struct Pos {
     y: usize,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct Cell {
     filled: bool,
     value: char,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 struct Matrix {
     width: usize,
     height: usize,
@@ -58,10 +67,10 @@ impl Matrix {
         y * self.width + x
     }
 
-    fn get_value(&self, x: usize, y: usize) -> char {
+    /* fn get_value(&self, x: usize, y: usize) -> char {
         let i = self.get_index(x, y);
         self.cells[i].value
-    }
+    } */
 
     fn get_filled(&self, x: usize, y: usize) -> bool {
         let i = self.get_index(x, y);
@@ -93,9 +102,29 @@ impl Matrix {
     }
 }
 
-fn load() {}
+fn load() -> Option<Matrix> {
+    // TODO proper error handling
+    let mut input = File::open(FILENAME).unwrap();
+    let mut str = String::new();
+    input.read_to_string(&mut str).unwrap();
 
-fn save() {}
+    let matrix: Matrix = serde_json::from_str(&str).unwrap();
+    //println!("loaded: {:?}", matrix);
+
+    Some(matrix)
+}
+
+fn save(m: &Matrix) {
+    // TODO proper error handling
+    // -> Result<()> {
+    let serialized = serde_json::to_string(&m).unwrap();
+    //println!("saved: {}", serialized);
+
+    let mut output = File::create(FILENAME).unwrap();
+    write!(output, "{}", serialized).unwrap();
+
+    //Ok(())
+}
 
 fn draw_grid(m: &Matrix) {
     attr_on(A_BOLD());
@@ -223,12 +252,17 @@ fn process_input(c: i32, m: &mut Matrix, p: &mut Pos, mode_: Mode) -> (bool, Mod
 
 fn main() {
     let mut p = Pos { x: 0, y: 0 };
-    let mut m = Matrix::new(4, 3);
+    let mut m = Matrix::new(11, 11);
     let mut c: i32 = 0;
     let mut mode = Mode::HORIZONTAL;
 
-    m.set_filled(1, 0, true);
-    m.set_value(0, 2, 'X');
+    //m.set_filled(1, 0, true);
+    //m.set_value(0, 2, 'X');
+
+    let _m: Option<Matrix> = load();
+    if _m.is_some() {
+        m = _m.unwrap();
+    }
 
     setlocale(LcCategory::all, "pt_PT.UTF-8");
 
@@ -254,7 +288,7 @@ fn main() {
         }
     }
 
-    //save();
+    save(&m);
 
     endwin();
 }
