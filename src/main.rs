@@ -47,6 +47,15 @@ struct Cell {
     value: char,
 }
 
+impl Cell {
+    fn toggle_filled(&mut self) {
+        self.filled = !self.filled;
+        if self.filled {
+            self.value = ' ';
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct Matrix {
     width: usize,
@@ -69,42 +78,14 @@ impl Matrix {
         }
     }
 
-    fn get_index(&self, x: usize, y: usize) -> usize {
-        y * self.width + x
-    }
-
-    /* fn get_value(&self, x: usize, y: usize) -> char {
-        let i = self.get_index(x, y);
-        self.cells[i].value
-    } */
-
-    fn get_filled(&self, x: usize, y: usize) -> bool {
-        let i = self.get_index(x, y);
-        self.cells[i].filled
+    fn get_cell_mut(&mut self, x: usize, y: usize) -> &mut Cell {
+        let i = y * self.width + x;
+        &mut self.cells[i]
     }
 
     fn get_cell(&self, x: usize, y: usize) -> &Cell {
-        let i = self.get_index(x, y);
+        let i = y * self.width + x;
         &self.cells[i]
-    }
-
-    fn toggle_filled(&mut self, x: usize, y: usize) {
-        let i = self.get_index(x, y);
-        let c: &mut Cell = &mut self.cells[i];
-        c.filled = !c.filled;
-        if c.filled {
-            c.value = ' ';
-        }
-    }
-
-    fn set_value(&mut self, x: usize, y: usize, v: char) {
-        let i = self.get_index(x, y);
-        self.cells[i].value = v;
-    }
-
-    fn set_filled(&mut self, x: usize, y: usize, f: bool) {
-        let i = self.get_index(x, y);
-        self.cells[i].filled = f;
     }
 }
 
@@ -195,12 +176,13 @@ fn draw_cells(m: &Matrix) {
     let h = m.height;
     for y in 0..h {
         for x in 0..w {
-            draw_cell(m.get_cell(x, y), x, y);
+            let cell: &Cell = m.get_cell(x, y);
+            draw_cell(&cell, x, y);
         }
     }
 }
 
-fn advance(cell: &Cell, mode: Mode, p: &mut Pos, width: usize, height: usize, delta: i32) {
+fn advance(m: &Matrix, mode: Mode, p: &mut Pos, width: usize, height: usize, delta: i32) {
     let coord: usize = if mode == Mode::HORIZONTAL { p.x } else { p.y };
 
     let max_value = if mode == Mode::HORIZONTAL {
@@ -215,7 +197,8 @@ fn advance(cell: &Cell, mode: Mode, p: &mut Pos, width: usize, height: usize, de
     };
 
     if valid {
-        draw_cell(cell, p.x, p.y);
+        let cell = m.get_cell(p.x, p.y);
+        draw_cell(&cell, p.x, p.y);
         if mode == Mode::HORIZONTAL {
             p.x = (p.x as i32 + delta) as usize;
         } else {
@@ -244,19 +227,25 @@ fn process_input(c: i32, m: &mut Matrix, p: &mut Pos, mode_: Mode) -> (bool, Mod
     } else if c == DOWN && p.y < m.height - 1 {
         p.y += 1;
     } else if c == ENTER {
-        m.toggle_filled(p.x, p.y);
-        let cell: &Cell = m.get_cell(p.x, p.y);
-        advance(&cell, mode, p, m.width, m.height, 1);
-    } else if c >= C_A && c <= C_Z || c == SPACE {
-        if !m.get_filled(p.x, p.y) {
-            m.set_value(p.x, p.y, char::from_u32(c as u32).unwrap());
-            let cell: &Cell = m.get_cell(p.x, p.y);
-            advance(&cell, mode, p, m.width, m.height, 1);
+        {
+            let cell = m.get_cell_mut(p.x, p.y);
+            cell.toggle_filled();
         }
+        advance(&m, mode, p, m.width, m.height, 1);
+    } else if c >= C_A && c <= C_Z || c == SPACE {
+        {
+            let mut cell = m.get_cell_mut(p.x, p.y);
+            if !cell.filled {
+                cell.value = char::from_u32(c as u32).unwrap();
+            }
+        }
+        advance(&m, mode, p, m.width, m.height, 1);
     } else if c == BCKSPC {
-        m.set_value(p.x, p.y, ' ');
-        let cell: &Cell = m.get_cell(p.x, p.y);
-        advance(&cell, mode, p, m.width, m.height, -1);
+        {
+            let mut cell = m.get_cell_mut(p.x, p.y);
+            cell.value = ' ';
+        }
+        advance(&m, mode, p, m.width, m.height, -1);
     }
     return (true, mode);
 }
@@ -266,9 +255,6 @@ fn main() {
     let mut m = Matrix::new(11, 11);
     let mut c: i32 = 0;
     let mut mode = Mode::HORIZONTAL;
-
-    //m.set_filled(1, 0, true);
-    //m.set_value(0, 2, 'X');
 
     let _m: Option<Matrix> = load();
     if _m.is_some() {
@@ -280,7 +266,6 @@ fn main() {
     initscr();
 
     curs_set(CURSOR_VISIBILITY::CURSOR_INVISIBLE);
-    //keypad(stdscr(), true);
     noecho();
     start_color();
 
