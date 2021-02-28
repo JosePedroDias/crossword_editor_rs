@@ -1,4 +1,4 @@
-# Crossword Editor
+# Crossword Editor (now in Rust!)
 
 Porting this simple ncurses app I had just done in C.
 
