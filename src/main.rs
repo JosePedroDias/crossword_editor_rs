@@ -216,26 +216,20 @@ fn process_input(c: i32, m: &mut Matrix, p: &mut Pos, mode_: Mode) -> (bool, Mod
         UP if p.y > 0 => p.y -= 1,
         DOWN if p.y < m.height - 1 => p.y += 1,
         ENTER => {
-            {
-                let cell = m.get_cell_mut(p.x, p.y);
-                cell.toggle_filled();
-            }
+            let cell = m.get_cell_mut(p.x, p.y);
+            cell.toggle_filled();
             advance(&m, mode, p, m.width, m.height, 1);
         }
         SPACE | C_A..=C_Z => {
-            {
-                let mut cell = m.get_cell_mut(p.x, p.y);
-                if !cell.filled {
-                    cell.value = char::from_u32(c as u32).unwrap();
-                }
+            let mut cell = m.get_cell_mut(p.x, p.y);
+            if !cell.filled {
+                cell.value = char::from_u32(c as u32).unwrap();
             }
             advance(&m, mode, p, m.width, m.height, 1);
         }
         BCKSPC => {
-            {
-                let mut cell = m.get_cell_mut(p.x, p.y);
-                cell.value = ' ';
-            }
+            let mut cell = m.get_cell_mut(p.x, p.y);
+            cell.value = ' ';
             advance(&m, mode, p, m.width, m.height, -1);
         }
         TAB => {
