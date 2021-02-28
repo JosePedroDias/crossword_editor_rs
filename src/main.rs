@@ -9,26 +9,26 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::Write;
 
-static UP: i32 = 65;
-static DOWN: i32 = 66;
-static LEFT: i32 = 68;
-static RIGHT: i32 = 67;
-//static ESCAPE: i32 = 27;
-static Q: i32 = 81;
-static TAB: i32 = 9;
-static ENTER: i32 = 10;
-static BCKSPC: i32 = 127;
-static C_A: i32 = 97;
-static C_Z: i32 = 122;
-static SPACE: i32 = 32;
+const UP: i32 = 65;
+const DOWN: i32 = 66;
+const LEFT: i32 = 68;
+const RIGHT: i32 = 67;
+//const ESCAPE: i32 = 27;
+const Q: i32 = 81;
+const TAB: i32 = 9;
+const ENTER: i32 = 10;
+const BCKSPC: i32 = 127;
+const C_A: i32 = 97;
+const C_Z: i32 = 122;
+const SPACE: i32 = 32;
 
-static CLR_GRID: i16 = 1;
-static CLR_FILLED: i16 = 2;
-static CLR_CURSOR: i16 = 3;
+const CLR_GRID: i16 = 1;
+const CLR_FILLED: i16 = 2;
+const CLR_CURSOR: i16 = 3;
 
-static STATUS_Y: i32 = 25;
+const STATUS_Y: i32 = 25;
 
-static FILENAME: &str = "game.json";
+const FILENAME: &str = "game.json";
 
 #[derive(PartialEq, Clone, Copy)]
 enum Mode {
@@ -210,44 +210,46 @@ fn advance(m: &Matrix, mode: Mode, p: &mut Pos, width: usize, height: usize, del
 fn process_input(c: i32, m: &mut Matrix, p: &mut Pos, mode_: Mode) -> (bool, Mode) {
     let mut mode = mode_;
 
-    if c == Q {
-        return (false, mode);
-    } else if c == TAB {
-        mode = if mode == Mode::HORIZONTAL {
-            Mode::VERTICAL
-        } else {
-            Mode::HORIZONTAL
-        };
-    } else if c == LEFT && p.x > 0 {
-        p.x -= 1;
-    } else if c == RIGHT && p.x < m.width - 1 {
-        p.x += 1;
-    } else if c == UP && p.y > 0 {
-        p.y -= 1;
-    } else if c == DOWN && p.y < m.height - 1 {
-        p.y += 1;
-    } else if c == ENTER {
-        {
-            let cell = m.get_cell_mut(p.x, p.y);
-            cell.toggle_filled();
-        }
-        advance(&m, mode, p, m.width, m.height, 1);
-    } else if c >= C_A && c <= C_Z || c == SPACE {
-        {
-            let mut cell = m.get_cell_mut(p.x, p.y);
-            if !cell.filled {
-                cell.value = char::from_u32(c as u32).unwrap();
+    match c {
+        LEFT if p.x > 0 => p.x -= 1,
+        RIGHT if p.x < m.width - 1 => p.x += 1,
+        UP if p.y > 0 => p.y -= 1,
+        DOWN if p.y < m.height - 1 => p.y += 1,
+        ENTER => {
+            {
+                let cell = m.get_cell_mut(p.x, p.y);
+                cell.toggle_filled();
             }
+            advance(&m, mode, p, m.width, m.height, 1);
         }
-        advance(&m, mode, p, m.width, m.height, 1);
-    } else if c == BCKSPC {
-        {
-            let mut cell = m.get_cell_mut(p.x, p.y);
-            cell.value = ' ';
+        SPACE | C_A..=C_Z => {
+            {
+                let mut cell = m.get_cell_mut(p.x, p.y);
+                if !cell.filled {
+                    cell.value = char::from_u32(c as u32).unwrap();
+                }
+            }
+            advance(&m, mode, p, m.width, m.height, 1);
         }
-        advance(&m, mode, p, m.width, m.height, -1);
+        BCKSPC => {
+            {
+                let mut cell = m.get_cell_mut(p.x, p.y);
+                cell.value = ' ';
+            }
+            advance(&m, mode, p, m.width, m.height, -1);
+        }
+        TAB => {
+            mode = if mode == Mode::HORIZONTAL {
+                Mode::VERTICAL
+            } else {
+                Mode::HORIZONTAL
+            };
+        }
+        Q => return (false, mode),
+        _ => {}
     }
-    return (true, mode);
+
+    (true, mode)
 }
 
 fn main() {
