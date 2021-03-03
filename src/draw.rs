@@ -57,7 +57,7 @@ pub fn draw_status(p: &Pos, c: i32, mode: Mode) {
 
 pub fn draw_cursor(p: &Pos) {
     attr_on(COLOR_PAIR(CLR_CURSOR));
-    mvaddch((p.y * 2 + 1) as i32, (p.x * 2 + 1) as i32, '@' as u64);
+    mvaddch((p.y * 2 + 1) as i32, (p.x * 2 + 1) as i32, '@' as u32);
     attr_off(COLOR_PAIR(CLR_CURSOR));
 }
 
@@ -71,7 +71,7 @@ pub fn draw_cell(cell: &Cell, x: usize, y: usize) {
         attr_on(A_REVERSE());
     }
 
-    mvaddch((y * 2 + 1) as i32, (x * 2 + 1) as i32, v as u64);
+    mvaddch((y * 2 + 1) as i32, (x * 2 + 1) as i32, v as u32);
 
     if cell.filled {
         attr_off(A_REVERSE());
